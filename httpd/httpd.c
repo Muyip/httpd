@@ -282,7 +282,7 @@ void *accept_request(void *arg)
 	pthread_detach(pthread_self());	
 
 	//get the sockfd connected to client
-	int sock_client = (int)arg;
+	int sock_client = *(int *)arg;
 	int cgi = 0;           //if cgi == 1, exe_cgi
 
 	char path[_COMM_SIZE_];			//store the path of resource
@@ -401,6 +401,7 @@ void *accept_request(void *arg)
 
 int main(int argc, char *argv[])
 {
+	Threadpool pool;
 
 	if(argc != 2)
 	{
@@ -483,13 +484,20 @@ int main(int argc, char *argv[])
 				}
 				else    // * 客户有请求
 				{
+					// 1 迭代型服务
+					//accept_request((void *)connfd);
 					// * 多线程版本
 					//a new thread to handle a connectiong request
-					pthread_t new_thread;
-					pthread_create(&new_thread, NULL, accept_request, (void *)connfd);
+					
+					// 2 多线程版本
+					//pthread_t new_thread;
+					//pthread_create(&new_thread, NULL, accept_request, (void *)connfd);
 
-					// * 迭代型服务
-					//accept_request((void *)connfd);
+					// 3 线程池版本
+					pthread_t new_thread;
+					int newConnfd = connfd;
+					pool.AddWorkToWorkQueue(accept_request, (void *)&newConnfd);    // * 每接收一个连接文件描述符，就把该事件喂给线程池
+					
 					
 					// ****** 非常非常重要，如果不把connfd从事件表中删除掉，下一次epoll_wait还会进入这个里面
 					epoll_ctl(epfd, EPOLL_CTL_DEL, connfd, NULL);     

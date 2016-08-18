@@ -7,17 +7,19 @@ CLI_BIN=demo_client
 SER_SRC=httpd.c
 CLI_SRC=demo_client.c
 
-INCLUDE=.
-CC=gcc
+THREAD_POOL=./pool/threadpool.cpp
+
+INCLUDE=./pool
+CC=g++
 FLAGS=-o 
-LDFLAGS=-lpthread#-static
+LDFLAGS=-lpthread #-static
 LIB=
 
 .PHONY:all
 all:$(SER_BIN) $(CLI_BIN) cgi
 
-$(SER_BIN):$(SER_SRC)
-	$(CC) $(FLAGS) $@ $^ $(LDFLAGS) -g -D_DEBUG_
+$(SER_BIN):$(SER_SRC) $(THREAD_POOL)
+	$(CC) $(FLAGS) $@ $^ -I$(INCLUDE) $(LDFLAGS) -g -D_DEBUG_
 $(CLI_BIN):$(CLI_SRC)
 	$(CC) $(FLAGS) $@ $^ $(LDFLAGS) -g -D_DEBUG_
 
