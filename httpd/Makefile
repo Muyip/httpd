@@ -33,7 +33,7 @@ cgi:
 
 .PHONY:output
 output: all
-	#export LD_LIBRARY_PATH=/home/common/YP/httpd/sql_connect/mysql_lib/lib #common
+	#export LD_LIBRARY_PATH=/home/common/work/project/httpd/sql_connect/mysql_lib/lib #common
 	@mkdir -p output/cgi_bin
 	@cp httpd output
 	@cp demo_client output

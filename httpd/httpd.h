@@ -1,19 +1,21 @@
 #ifndef _HTTPD_H__
 #define _HTTPD_H__
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<errno.h>
-#include<netinet/in.h>
-#include<pthread.h>
-#include<sys/sendfile.h>
-#include<sys/stat.h>
-#include<unistd.h>
-#include<fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <pthread.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
-#include<./asm-generic/socket.h>
+#include <sys/epoll.h>
+#include <arpa/inet.h>
+#include <./asm-generic/socket.h>
 
 
 
@@ -26,6 +28,8 @@
 #define _SERVER_ERROR_ 500
 #define _NOT_FOUNT_ 404
 
+
+//#define __DEBUG__
 
 #endif
 

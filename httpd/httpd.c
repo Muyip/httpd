@@ -383,6 +383,7 @@ void *accept_request(void *arg)
 		}
 		else
 		{}
+
 		if(cgi) //dynamic html, need to run cgi;
 			exe_cgi(sock_client, path, method, query_string);
 		else   //static html;
@@ -393,74 +394,181 @@ void *accept_request(void *arg)
 	}
 	printf("close sock...\n");
 	close(sock_client);
+
 	return NULL;
-}
-
-//sucess return sock, else exit process
-int start(int port)
-{
-	int listen_sock = socket(AF_INET, SOCK_STREAM, 0);  // 1 listen_socket
-	if(listen_sock == -1)
-	{
-		print_log(__LINE__, errno, strerror(errno));
-		exit(1);
-	}
-
-	struct sockaddr_in local;  
-	local.sin_family = AF_INET;
-	local.sin_port = htons(port);  //host -> net
-	local.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	socklen_t len = sizeof(local);
-	
-	//reuse port
-	int flag = 1;
-	setsockopt(listen_sock, SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag));
-
-	if(bind(listen_sock, (struct sockaddr *)&local, len) == -1)   // 2 bind
-	{
-		print_log(__LINE__, errno, strerror(errno));
-		exit(2);
-	}
-
-	if(listen(listen_sock, _BACK_L0G_) == -1)
-	{
-		print_log(__LINE__, errno, strerror(errno));
-		exit(3);	
-	}
-
-	return listen_sock;
 }
 
 
 int main(int argc, char *argv[])
 {
+
 	if(argc != 2)
 	{
 		usage(argv[0]);
 		exit(1);
 	}
-	int port = atoi(argv[1]);
-	
-	//get the listen socket
-	int sock = start(port); 
 
-	//store the infomation of client
-	struct sockaddr_in client;
-	socklen_t len = 0;
-	while(1)
+	struct sockaddr_in servaddr, clieaddr;
+	socklen_t len;
+	struct epoll_event tmp, saveReady[/*OPEN_MAX*/1024];
+	int listenfd, connfd, sockfd, epfd;
+	int maxindex, ready, i, j,  num;
+	char buf[/*BUF_SIZE*/1024], str[INET_ADDRSTRLEN];	//INET_ADDRSTRLEN = 16
+
+	if((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
-		//wait for connection
-		int new_sock = accept(sock, (struct sockaddr *)&client, &len);
-		if(new_sock < 0)
-		{
-			print_log(__LINE__, errno, strerror(errno));
-			continue;
-		}
-		pthread_t new_thread;
-		//a new thread to handle a connectiong request
-		pthread_create(&new_thread, NULL, accept_request, (void *)new_sock);
+		perror("socket");
+		exit(1);
 	}
 
-	return 0;
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	servaddr.sin_port = htons(atoi(argv[1]));
+	
+	if(bind(listenfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+	{
+		perror("socket");
+		exit(1);
+	}
+
+	if(listen(listenfd, 10) < 0)
+	{
+		perror("socket");
+		exit(1);
+	}
+
+	if((epfd = epoll_create(/*OPEN_MAX*/1024)) < 0)
+	{
+		perror("epoll_create");
+		exit(1);
+	}
+
+	tmp.events = EPOLLIN;
+	tmp.data.fd = listenfd;
+	epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &tmp);
+
+	while(1)
+	{
+		ready = epoll_wait(epfd, saveReady, /*OPEN_MAX*/1024, -1);
+
+		if(ready < 0)    // * epoll_wait 出错
+		{	
+			perror("epoll_wait");
+			exit(1);
+		}
+		else if(ready > 0)
+		{
+			for(i = 0; i < ready; ++i)
+			{
+				if(saveReady[i].data.fd == listenfd)		//有新客户端连接
+				{
+					len = sizeof(clieaddr);
+					if((connfd = accept(listenfd, (struct sockaddr *)&clieaddr, &len)) < 0)    // * 与客户端建立连接
+					{
+						perror("accept");
+						exit(1);
+					}
+#ifdef __DEBUG__
+					//打印客户端信息
+					//printf("get a new connecter...%d\n", numofrequest++);
+					const char *client_ip = inet_ntop(AF_INET, &clieaddr.sin_addr, str, sizeof(str));
+					short client_port = ntohs(clieaddr.sin_port);
+					printf("get a new client at   ip: %s,  port: %d\n", client_ip, client_port); 
+#endif
+
+					// * 把关联了客户端的文件描述符 加入到内核事件表里面					
+					tmp.events = EPOLLIN;
+					tmp.data.fd = connfd;
+					epoll_ctl(epfd, EPOLL_CTL_ADD, connfd, &tmp);		//把accept添加到要监控的epfd里面
+				}
+				else    // * 客户有请求
+				{
+					// * 多线程版本
+					//a new thread to handle a connectiong request
+					pthread_t new_thread;
+					pthread_create(&new_thread, NULL, accept_request, (void *)connfd);
+
+					// * 迭代型服务
+					//accept_request((void *)connfd);
+					
+					// ****** 非常非常重要，如果不把connfd从事件表中删除掉，下一次epoll_wait还会进入这个里面
+					epoll_ctl(epfd, EPOLL_CTL_DEL, connfd, NULL);     
+				}
+			}
+		}
+	}
+
+	close(listenfd);
+	close(epfd);
+
+	return 0;	
 }
+
+// * sucess return sock, else exit process
+//int start(int port) 
+//{ 
+//	int listen_sock = socket(AF_INET, SOCK_STREAM, 0);  
+//	if(listen_sock == -1) 
+//	{ 
+//		print_log(__LINE__, errno, strerror(errno));
+//		exit(1);
+//	}
+//
+//	struct sockaddr_in local;  
+//	local.sin_family = AF_INET;
+//	local.sin_port = htons(port);  //host -> net
+//	local.sin_addr.s_addr = htonl(INADDR_ANY);
+//
+//	socklen_t len = sizeof(local);
+//	
+//	//reuse port
+//	int flag = 1;
+//	setsockopt(listen_sock, SOL_SOCKET, SO_REUSEPORT, &flag, sizeof(flag));
+//
+//	if(bind(listen_sock, (struct sockaddr *)&local, len) == -1)   // 2 bind
+//	{
+//		print_log(__LINE__, errno, strerror(errno));
+//		exit(2);
+//	}
+//
+//	if(listen(listen_sock, _BACK_L0G_) == -1)
+//	{
+//		print_log(__LINE__, errno, strerror(errno));
+//		exit(3);	
+//	}
+//
+//	return listen_sock;
+//}
+
+
+//int main(int argc, char *argv[])
+//{
+//	if(argc != 2)
+//	{
+//		usage(argv[0]);
+//		exit(1);
+//	}
+//	int port = atoi(argv[1]);
+//	
+//	//get the listen socket
+//	int sock = start(port); 
+//
+//	//store the infomation of client
+//	struct sockaddr_in client;
+//	socklen_t len = 0;
+//	while(1)
+//	{
+//		//wait for connection
+//		int new_sock = accept(sock, (struct sockaddr *)&client, &len);
+//		if(new_sock < 0)
+//		{
+//			print_log(__LINE__, errno, strerror(errno));
+//			continue;
+//		}
+//		pthread_t new_thread;
+//		//a new thread to handle a connectiong request
+//		pthread_create(&new_thread, NULL, accept_request, (void *)new_sock);
+//	}
+//
+//	return 0;
+//}

@@ -29,8 +29,12 @@ bool sql_connecter::begin_connect()
 	else
 	{
 		//cout<<"connect success :)"<<endl;
-		return true;
 	}
+	
+	mysql_set_character_set(mysql_base, "utf8");
+
+	return true;
+
 }
 
 bool sql_connecter::select_sql(string _out_field_name[], string _out_data[][4], int &_out_row)
@@ -81,7 +85,7 @@ bool sql_connecter::insert_sql(const string &data)
 	insert_data += ");";
 	if(mysql_query(mysql_base, insert_data.c_str()) == 0)
 	{
-		cout<<"query success!"<<endl;
+		cout<<"query success! & insert success"<<endl;
 		return true;
 	}
 	else
@@ -139,26 +143,31 @@ bool sql_connecter::show_info()
 //	conn.begin_connect();
 //	//conn.show_info();
 //
-//	//cout<<"begin insert.."<<endl;
-//	//const string insert_data = "0, 'yp', 22, 'read'";
-//	//if(conn.insert_sql(insert_data))
-//	//	cout<<"data : "<<insert_data<<"  has been inserted"<<endl<<"new data: "<<endl;
+//	const string insert_data = "0, '杨鹏', 22, '啊啊啊'";
+//	conn.insert_sql(insert_data);
 //
-//	conn.select_sql(mysql_head, mysql_data, data_num);
-//	for(int i = 0; i<4; ++i)
-//	{
-//		cout<<mysql_head[i]<<"\t";
-//	}
-//	cout<<endl;
-//	for(int i = 0; i<data_num; ++i)
-//	{
-//		for(int j = 0; j<4; ++j)
-//			cout<<mysql_data[i][j]<<"\t";
-//		cout<<endl;
-//	}
+//	// 查询数据库内容
+//	//conn.select_sql(mysql_head, mysql_data, data_num);
+//	//for(int i = 0; i<4; ++i)
+//	//{
+//	//	cout<<mysql_head[i]<<"\t";
+//	//}
+//	//cout<<endl;
+//	//for(int i = 0; i<data_num; ++i)
+//	//{
+//	//	for(int j = 0; j<4; ++j)
+//	//		cout<<mysql_data[i][j]<<"\t";
+//	//	cout<<endl;
+//	//}
 //
-
+//
 //	conn.close_connect();
+//
+//	//return 0;
+//	exit(0);
+//}
+
+
 //	conn.begin_connect();
 //	
 //	string delete_age = "12";
@@ -176,8 +185,5 @@ bool sql_connecter::show_info()
 //			cout<<mysql_data[i][j]<<"\t";
 //		cout<<endl;
 //	}
-//
-//	return 0;
-//}
 
 //#endif

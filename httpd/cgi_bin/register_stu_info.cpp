@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <unistd.h>
 #include "sql_connect.h" //sql_connect.h
 using namespace std;
 
@@ -73,7 +74,8 @@ int main()
 	{
 		content_length = atoi(getenv("CONTENT_LENGTH"));
 		int i = 0; 
-		for(; i < content_length; i++ ){
+		for(; i < content_length; i++ )
+		{
 			read(0, &post_data[i], 1);
 		}
 		post_data[i] = '\0';
